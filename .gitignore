@@ -1,0 +1,12 @@
+debug/
+file-history/
+paste-cache/
+projects/
+session-env/
+shell-snapshots/
+plugins/cache/
+tasks/
+telemetry/
+todos/
+statsig/
+.DS_Store
