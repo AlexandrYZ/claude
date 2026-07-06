@@ -107,6 +107,77 @@ verified = hub("GET", f"/users/{urllib.parse.quote(user_id)}?" + urllib.parse.ur
 
 После создания используй `password` только для отправки в личное сообщение; не печатай объект с паролем.
 
+## Сброс пароля существующему пользователю
+
+Для задач вида «обнули пароль пользователю и отправь в Bitrix24» используй тот же Hub REST API. На текущем YouTrack 2021.x endpoint вида `/users/{id}/details/{detailId}` может возвращать `404`; рабочий путь — обновлять embedded `details` через `POST /hub/api/rest/users/{userId}`.
+
+Порядок:
+
+1. Найди пользователя по `login` и убедись, что результат ровно один:
+
+```bash
+curl -s -H "Authorization: Bearer $YOUTRACK_API_KEY" \
+  "$YOUTRACK_URL/hub/api/rest/users?fields=id,login,name,banned,profile(email(email,verified)),details(id,type,email(email),authModuleName,passwordChangeRequired)&query=login:%20Имя_Фамилия&\$top=10" | jq '.'
+```
+
+2. Возьми из ответа `user.id`, `details[].id`, email и auth module Hub. Если `details` несколько — меняй только запись нужного auth module.
+3. Сгенерируй пароль в памяти процесса и обнови пользователя через `POST /users/{userId}`. Не печатай payload и не сохраняй пароль в файлы:
+
+```python
+import json
+import os
+import secrets
+import string
+import urllib.parse
+import urllib.request
+
+YT = os.environ["YOUTRACK_URL"].rstrip("/")
+TOKEN = os.environ["YOUTRACK_API_KEY"]
+
+user_id = "hub-user-id"
+detail_id = "email-details-id"
+login = "Имя_Фамилия"
+display_name = "Имя Фамилия"
+email = "user@example.ru"
+auth_module_id = "d1fb8f1a-0f83-4fa0-8013-f286136dad84"  # Hub
+
+def hub(method, path, body=None):
+    headers = {"Authorization": f"Bearer {TOKEN}", "Accept": "application/json"}
+    data = None
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+        data = json.dumps(body, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(f"{YT}/hub/api/rest{path}", data=data, method=method, headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        raw = resp.read().decode("utf-8")
+        return json.loads(raw) if raw else None
+
+alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
+password = "".join(secrets.choice(alphabet) for _ in range(22))
+fields = "id,login,name,banned,profile(email(email,verified)),details(id,type,email(email),authModuleName,passwordChangeRequired)"
+
+hub("POST", f"/users/{urllib.parse.quote(user_id)}?" + urllib.parse.urlencode({"fields": fields}), {
+    "type": "user",
+    "id": user_id,
+    "login": login,
+    "name": display_name,
+    "profile": {"email": {"type": "EmailJSON", "email": email}},
+    "details": [{
+        "type": "EmailuserdetailsJSON",
+        "id": detail_id,
+        "email": {"type": "EmailJSON", "email": email},
+        "authModule": {"type": "CoreauthmoduleJSON", "id": auth_module_id},
+        "password": {"type": "PlainpasswordJSON", "value": password},
+        "passwordChangeRequired": True,
+    }],
+})
+
+verified = hub("GET", f"/users/{urllib.parse.quote(user_id)}?" + urllib.parse.urlencode({"fields": fields}))
+```
+
+4. Проверь read-back: `login`, `banned=false`, email и `details[].passwordChangeRequired=true`.
+5. Отправь `password` только в согласованный личный канал, например Bitrix24 IM. В заметках, комментариях и stdout фиксируй только факт доставки, dialog/message ID и проверочные поля без секрета.
+
 ## Деактивация пользователя для освобождения лицензии
 
 Если Hub вернул `license_users_number_exceeded`, найди кандидатов и спроси пользователя, кого можно деактивировать:
