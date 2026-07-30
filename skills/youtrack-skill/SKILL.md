@@ -1,12 +1,14 @@
 ---
 name: youtrack
-description: "Создать, найти, обновить задачу в YouTrack. Назначить исполнителя, изменить статус, добавить тег. Получить информацию о задаче (IREG, TMK, FER, ADM, BI). Статистика по тегам. Создать подзадачу. Инцидент YouTrack."
+description: "Создать, найти, обновить задачу или релиз/версию в YouTrack. Назначить исполнителя, изменить статус, добавить тег. Получить информацию о задаче (IREG, TMK, FER, ADM, BI). Статистика по тегам. Создать подзадачу. Инцидент YouTrack."
 aliases: [yt, youtrack-manager, issue-manager]
 ---
 
 # YouTrack Issue Manager
 
 Управление задачами в YouTrack через CLI (`yt_client.py`) и bash-скрипты.
+
+Для запросов на создание пустого релиза/версии с периодом используй [`runbooks/create-release.md`](runbooks/create-release.md). Это операция над version bundle, а не создание задачи через `yt_client.py`.
 
 ## Конфигурация
 
